@@ -5,7 +5,7 @@ This class implements a type-safe session object container.
 
 It does not attempt to hijack the PHP session lifecycle - it only provides a
 type-safe means of storing serialized objects in session variables; you are
-still in charge of e.g. starting the session with session_start() etc.
+still in charge of e.g. starting the session with `session_start()`, etc.
 
 Example:
 
