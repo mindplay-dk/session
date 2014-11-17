@@ -1,8 +1,6 @@
 <?php
 
-/** @var \Composer\Autoload\ClassLoader $autoloader */
-$autoloader = require __DIR__ . '/vendor/autoload.php';
-$autoloader->addPsr4('mindplay\session\\', __DIR__ . '/src');
+require __DIR__ . '/vendor/autoload.php';
 
 use mindplay\session\SessionContainer;
 
