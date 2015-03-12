@@ -15,39 +15,54 @@ still in charge of e.g. starting the session with `session_start()`, etc.
 
 Example:
 
-    use mindplay\session\SessionContainer;
+```PHP
+use mindplay\session\SessionContainer;
 
-    class Cart
-    {
-        /** @var int */
-        public $user_id;
+class Cart
+{
+    /** @var int */
+    public $user_id;
 
-        /** @var int[] */
-        public $product_ids = array();
+    /** @var int[] */
+    public $product_ids = array();
+}
+
+$session = new SessionContainer();
+
+// add some products to the Cart:
+
+$session->update(
+    function (Cart $cart) {
+        $cart->product_ids[] = 777;
+        $cart->product_ids[] = 555;
     }
+);
 
-    $session = new SessionContainer();
+// commit session container contents to session variables:
 
-    // add some products to the Cart:
+$session->commit();
 
-    $session->update(
-        function (Cart $cart) {
-            $cart->product_ids[] = 777;
-            $cart->product_ids[] = 555;
-        }
-    );
+// empty the cart:
 
-    // commit session container contents to session variables:
-
-    $session->commit();
-
-    // empty the cart:
-
-    $session->update(
-        function (Cart $cart) use ($session) {
-            $session->remove($cart);
-        }
-    );
+$session->update(
+    function (Cart $cart) use ($session) {
+        $session->remove($cart);
+    }
+);
+```
 
 This approach gives you type-hinted closures whenever you're working with session
 state of any sort, which is great for IDE support and code comprehension in general.
+
+If you don't care about transactional sessions and want changes committed automatically,
+you can register a shutdown function, for example:
+
+```PHP
+$session = new SessionContainer();
+
+// ...
+
+register_shutdown_function(function () use ($session) {
+    $session->commit();
+});
+```
