@@ -3,7 +3,9 @@
 require __DIR__ . '/vendor/autoload.php';
 
 use mindplay\session\MockSessionStorage;
+use mindplay\session\NativeSessionStorage;
 use mindplay\session\SessionContainer;
+use mindplay\session\SessionStorage;
 
 // TEST FIXTURES:
 
@@ -13,16 +15,15 @@ class User
 }
 
 class Cart
-{
-    /** @var string[] */
-    public $products = array();
-}
+{}
 
-// UNIT TEST:
+// BOOTSTRAP FOR INTEGRATION TEST:
 
 @session_destroy();
 
 session_start();
+
+// UNIT TEST:
 
 header('Content-type: text/plain');
 
@@ -30,78 +31,156 @@ if (coverage()) {
     coverage('test')->filter()->addDirectoryToWhitelist(__DIR__ . '/src');
 }
 
-test(
-    'SessionContainer behaviors',
-    function () {
-        $session_name = 'SessionService_TEST';
+// STORAGE TEST:
 
-        $session = new SessionContainer($session_name);
+function test_storage($type)
+{
+    test(
+        "{$type} behavior",
+        function () use ($type) {
+            /** @var SessionStorage $storage */
+            $storage = new $type('foo');
 
-        ok(! isset($_SESSION[$session_name]), 'Session should be empty');
+            $storage->set('a', 'b');
 
-        $session->update(
-            function(User $user, Cart $cart) {
-                $user->name = 'Rasmus';
+            eq($storage->get('a'), 'b', 'stores and returns the value');
 
-                $cart->products[] = 'Milk';
-                $cart->products[] = 'Cookies';
-            }
-        );
+            $storage->set('c', 'd');
 
-        ok(! isset($_SESSION[$session_name]), 'Session has not yet been committed');
+            $storage->set('a', null);
 
-        $session->commit();
+            eq($storage->get('a'), null, 'removes keys for NULL values');
 
-        eq(count($_SESSION[$session_name]), 2, 'Session should contain 2 objects');
+            eq($storage->get('c'), 'd', 'returns other values');
 
-        unset($session);
+            $storage->clear();
 
-        $session = new SessionContainer($session_name);
+            eq($storage->get('c'), null, 'can remove all data');
+        }
+    );
+}
 
-        $session->update(
-            function(Cart $cart) use ($session) {
-                $session->remove($cart); // remove Cart from session
-            }
-        );
+test_storage('mindplay\session\NativeSessionStorage');
+test_storage('mindplay\session\MockSessionStorage');
 
-        eq(count($_SESSION[$session_name]), 2, 'Session should contain 2 objects (not yet committed)');
-
-        $session->commit();
-
-        eq(count(array_filter($_SESSION[$session_name])), 1, 'Session should contain 1 object');
-
-        $session->clear();
-
-        ok(! isset($_SESSION[$session_name]), 'Session has been destroyed');
-    }
-);
+// INTEGRATION TEST:
 
 test(
-    'Mock session storage behavior',
+    'Native session storage integration',
     function () {
-        $storage = new MockSessionStorage('foo');
+        $NAME = 'session_test';
 
-        eq($storage->namespace, 'foo', 'returns the namespace');
+        $storage = new NativeSessionStorage($NAME);
+
+        ok(!isset($_SESSION[$NAME]), 'pre-condition');
 
         $storage->set('a', 'b');
 
-        eq($storage->get('a'), 'b', 'stores and returns the value');
-
-        eq($storage->data['a'], 'b', 'can get value from $data property');
-
-        $storage->set('c', 'd');
+        eq($_SESSION[$NAME]['a'], serialize('b'), 'it sets the serialized session value');
 
         $storage->set('a', null);
 
-        eq($storage->data, array('c' => 'd'), 'removes keys for NULL values');
+        ok(!isset($_SESSION[$NAME]['a']), 'it removes the session value');
+
+        $storage->set('a', 'x');
+
+        eq($_SESSION[$NAME]['a'], serialize('x'), 'session has serialized contents');
 
         $storage->clear();
 
-        eq($storage->data, array(), 'can clear all data');
-
-        eq($storage->get('c'), null, 'returns NULL for undefined values');
+        ok(!isset($_SESSION[$NAME]), 'root session variable removed');
     }
 );
+
+test(
+    'SessionContainer behavior and integration with SessionStorage',
+    function () {
+        $storage = new MockSessionStorage('foo');
+
+        $container = new SessionContainer($storage);
+
+        $user = $container->update(function (User $user) {
+            $user->name = 'bob';
+            return $user;
+        });
+
+        eq($user->name, 'bob', 'can create and update session model objects');
+
+        $user_again = $container->update(function (User $user) {
+            return $user;
+        });
+
+        eq($user, $user_again, 'it returns the same model instance');
+
+        eq($storage->data, array(), 'it does not make changes to storage before commit()');
+
+        $container->commit();
+
+        eq($storage->data, array('User' => $user), 'it stores the session model object');
+
+        $null = $container->update(function (Cart $null = null) {
+            return $null;
+        });
+
+        eq($null, null, 'returns NULL for optional session model');
+
+        $cart = $container->update(function (Cart $cart) {
+            return $cart;
+        });
+
+        $not_null = $container->update(function (Cart $cart = null) {
+            return $cart;
+        });
+
+        ok(!is_null($not_null), 'does not return NULL if model is present');
+
+        $container->commit();
+
+        eq($storage->data, array('User' => $user, 'Cart' => $cart), 'it stores another model object');
+
+        $container->remove('User');
+
+        $container->commit();
+
+        $null = $container->update(function (User $null = null) {
+            return $null;
+        });
+
+        eq($null, null, 'can remove model object by name');
+
+        eq($storage->data, array('Cart' => $cart), 'object removed from underlying storage');
+
+        $container->remove($user);
+
+        $container->commit();
+
+        $null = $container->update(function (User $null = null) {
+            return $null;
+        });
+
+        eq($null, null, 'can remove model object by reference');
+
+        $got_both = $container->update(function (User $user, Cart $cart) {
+            return ($user instanceof User) && ($cart instanceof Cart);
+        });
+
+        ok($got_both, 'can get multiple model objects in the same call');
+
+        $container->commit();
+
+        eq(count($storage->data), 2, 'it stores both objects');
+
+        $container->clear();
+
+        eq(count($storage->data), 2, 'clear() does not commit to storage');
+
+        $container->commit();
+
+        eq($storage->data, array(), 'it removes everything from storage');
+    }
+);
+
+// REPORTING:
 
 if (coverage()) {
     $report = new PHP_CodeCoverage_Report_Text(10, 90, false, false);
@@ -158,7 +237,7 @@ function eq($value, $expected, $why = null)
 
     $info = $result
         ? format($value)
-        : "expected: " . format($expected, true) . ", got: " . format($value, true);
+        : "expected: " . format($expected, !$result) . ", got: " . format($value, !$result);
 
     ok($result, ($why === null ? $info : "$why ($info)"));
 }
@@ -182,6 +261,10 @@ function format($value, $verbose = false)
 
     if (is_bool($value)) {
         return $value ? 'TRUE' : 'FALSE';
+    }
+
+    if (is_object($value) && !$verbose) {
+        return get_class($value);
     }
 
     return print_r($value, true);
