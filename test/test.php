@@ -4,7 +4,7 @@ require __DIR__ . '/header.php';
 
 use mindplay\session\MockSessionStorage;
 use mindplay\session\NativeSessionStorage;
-use mindplay\session\SessionContainer;
+use mindplay\session\SessionService;
 use mindplay\session\SessionStorage;
 
 // TEST FIXTURES:
@@ -93,11 +93,11 @@ test(
 );
 
 test(
-    'SessionContainer behavior and integration with SessionStorage',
+    'SessionService behavior and integration with SessionStorage',
     function () {
         $storage = new MockSessionStorage('foo');
 
-        $container = new SessionContainer($storage);
+        $container = new SessionService($storage);
 
         $user = $container->update(function (User $user) {
             $user->name = 'bob';

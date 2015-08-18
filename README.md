@@ -13,13 +13,13 @@ state of any sort, which is great for IDE support and code comprehension in gene
 
 ### Usage
 
-Note that `SessionContainer` does not attempt to control the PHP session lifecycle - it only provides a
+Note that `SessionService` does not attempt to control the PHP session lifecycle - it only provides a
 type-safe means of storing serialized objects in session variables; you are still in charge of e.g.
 starting the session with `session_start()`, etc.
 
 #### Setting up
 
-Let's assume you have a session model like this:
+Let's assume you have a session model like this one:
 
 ```PHP
 class Cart
@@ -63,6 +63,9 @@ use mindplay\session\SessionContainer;
 
 $session = new SessionContainer();
 ```
+
+Note that, in a real project, you would probably want to type-hint e.g. controllers against
+the abstract `SessionContainer` interface, since calling e.g. `commit()` isn't relevant there.
 
 To access/update a session model object, pass a type-hinted closure to the `update()` method:
 
