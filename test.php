@@ -2,6 +2,7 @@
 
 require __DIR__ . '/vendor/autoload.php';
 
+use mindplay\session\MockSessionStorage;
 use mindplay\session\SessionContainer;
 
 // TEST FIXTURES:
@@ -72,6 +73,33 @@ test(
         $session->clear();
 
         ok(! isset($_SESSION[$session_name]), 'Session has been destroyed');
+    }
+);
+
+test(
+    'Mock session storage behavior',
+    function () {
+        $storage = new MockSessionStorage('foo');
+
+        eq($storage->namespace, 'foo', 'returns the namespace');
+
+        $storage->set('a', 'b');
+
+        eq($storage->get('a'), 'b', 'stores and returns the value');
+
+        eq($storage->data['a'], 'b', 'can get value from $data property');
+
+        $storage->set('c', 'd');
+
+        $storage->set('a', null);
+
+        eq($storage->data, array('c' => 'd'), 'removes keys for NULL values');
+
+        $storage->clear();
+
+        eq($storage->data, array(), 'can clear all data');
+
+        eq($storage->get('c'), null, 'returns NULL for undefined values');
     }
 );
 

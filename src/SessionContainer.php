@@ -22,9 +22,9 @@ use ReflectionFunction;
 class SessionContainer
 {
     /**
-     * @var string root session-variable name
+     * @var SessionStorage storage implementation
      */
-    protected $root;
+    protected $storage;
 
     /**
      * @var (object|null)[] map where type-name => object (or NULL, if the object has been removed)
@@ -32,11 +32,15 @@ class SessionContainer
     protected $cache = array();
 
     /**
-     * @param string|null root session-variable name (or NULL to use class-name as a default)
+     * @param string|null|SessionStorage $storage session storage implementation; or a string to use native session
+     *                                            storage and specify the root namespace; or NULL to use the class
+     *                                            name as the default namespace.
      */
-    public function __construct($root = null)
+    public function __construct($storage = null)
     {
-        $this->root = $root ? : get_class($this);
+        $this->storage = $storage instanceof SessionStorage
+            ? $storage
+            : new NativeSessionStorage(is_string($storage) ? $storage : get_class($this));
     }
 
     /**
@@ -83,11 +87,7 @@ class SessionContainer
     public function commit()
     {
         foreach ($this->cache as $type => $object) {
-            if ($object === null) {
-                unset($_SESSION[$this->root][$type]);
-            } else {
-                $_SESSION[$this->root][$type] = $this->serialize($object);
-            }
+            $this->storage->set($type, $object);
         }
     }
 
@@ -102,7 +102,7 @@ class SessionContainer
     {
         $this->cache = array();
 
-        unset($_SESSION[$this->root]);
+        $this->storage->clear();
     }
 
     /**
@@ -113,11 +113,7 @@ class SessionContainer
     protected function fetch($type)
     {
         if (!isset($this->cache[$type])) {
-            if (!isset($_SESSION[$this->root][$type])) {
-                return null;
-            }
-
-            $this->cache[$type] = $this->unserialize($_SESSION[$this->root][$type]);
+            $this->cache[$type] = $this->storage->get($type);;
         }
 
         return $this->cache[$type];
@@ -135,25 +131,5 @@ class SessionContainer
         $this->cache[$type] = $object;
 
         return $object;
-    }
-
-    /**
-     * @param $object
-     *
-     * @return string serialized object
-     */
-    protected function serialize($object)
-    {
-        return serialize($object);
-    }
-
-    /**
-     * @param string $str serialized object
-     *
-     * @return object
-     */
-    protected function unserialize($str)
-    {
-        return unserialize($str);
     }
 }
