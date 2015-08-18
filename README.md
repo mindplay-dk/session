@@ -133,3 +133,21 @@ To remove all session models, call the `clear()` method.
 
 Note that the session models are not removed from underlying storage until `commit()`
 is called.
+
+### Custom storage and testing
+
+A `MockSessionStorage` implementation is included, useful for integration tests - you
+can provide this (or any `SessionStorage` implementation) at construction time, e.g.:
+
+```PHP
+use mindplay\session\MockSessionStorage;
+use mindplay\session\SessionContainer;
+
+$storage = new MockSessionStorage('foo');
+
+$container = new SessionContainer($storage);
+```
+
+During integration tests, you can make assertions about the contents of the public
+`MockSessionStorage::$data` property, which contains the raw session model objects,
+indexed by class-name.
