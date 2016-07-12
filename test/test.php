@@ -122,7 +122,7 @@ test(
 
         $container->commit();
 
-        eq($storage->data, array('User' => $user), 'committing withouth changes, does not affect storage');
+        eq($storage->data, array('User' => $user), 'committing without changes, does not affect storage');
 
         $null = $container->update(function (Cart $null = null) {
             return $null;
