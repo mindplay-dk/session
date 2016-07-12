@@ -33,6 +33,11 @@ class SessionService implements SessionContainer
     protected $cache = array();
 
     /**
+     * @var boolean flag for clearing storage at commit.
+     */
+    protected $clear_storage = false;
+
+    /**
      * @param string|null|SessionStorage $storage session storage implementation; or a string to use native session
      *                                            storage and specify the root namespace; or NULL to use the class
      *                                            name as the default namespace.
@@ -81,7 +86,11 @@ class SessionService implements SessionContainer
      */
     public function clear()
     {
-        $this->cache = array_fill_keys(array_keys($this->cache), null);
+        $this->clear_storage = true;
+
+        foreach (array_keys($this->cache) as $type) {
+            $this->remove($type);
+        }
     }
 
     /**
@@ -89,12 +98,12 @@ class SessionService implements SessionContainer
      */
     public function commit()
     {
-        if (count(array_filter($this->cache)) === 0) {
+        if ($this->clear_storage) {
             $this->storage->clear();
-        } else {
-            foreach ($this->cache as $type => $object) {
-                $this->storage->set($type, $object);
-            }
+        }
+
+        foreach ($this->cache as $type => $object) {
+            $this->storage->set($type, $object);
         }
     }
 
@@ -105,7 +114,7 @@ class SessionService implements SessionContainer
      */
     protected function fetch($type)
     {
-        if (!isset($this->cache[$type])) {
+        if (!isset($this->cache[$type]) && ! $this->clear_storage) {
             $this->cache[$type] = $this->storage->get($type);
         }
 

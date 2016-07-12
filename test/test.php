@@ -118,6 +118,12 @@ test(
 
         eq($storage->data, array('User' => $user), 'it stores the session model object');
 
+        $container = new SessionService($storage);
+
+        $container->commit();
+
+        eq($storage->data, array('User' => $user), 'committing withouth changes, does not affect storage');
+
         $null = $container->update(function (Cart $null = null) {
             return $null;
         });
@@ -177,6 +183,26 @@ test(
         $container->commit();
 
         eq($storage->data, array(), 'it removes everything from storage');
+
+        $container->update(function (User $user, Cart $cart) {
+            $user->name = 'Bob';
+
+            return $cart;
+        });
+
+        $container->commit();
+
+        $container->clear();
+
+        $user = $container->update(function (User $user) {
+            return $user;
+        });
+
+        $container->commit();
+
+        eq($storage->data, array('User' => $user), 'Can clear session and update values subsequently in one commit');
+
+        eq($user->name, null, 'A session model fetched after clear(), before commit(), must be a new instance');
     }
 );
 

@@ -33,7 +33,9 @@ interface SessionContainer
     public function remove($model);
 
     /**
-     * Destroy all objects in this session store.
+     * Destroy all objects in this session store
+     *
+     * You can call clear() and subsequently store new instances in session in one commit.
      *
      * Note that the change is not effective until you call commit()
      *
