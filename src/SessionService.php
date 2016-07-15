@@ -88,9 +88,7 @@ class SessionService implements SessionContainer
     {
         $this->clear_storage = true;
 
-        foreach (array_keys($this->cache) as $type) {
-            $this->remove($type);
-        }
+        $this->cache = array_fill_keys(array_keys($this->cache), null);
     }
 
     /**
@@ -105,6 +103,8 @@ class SessionService implements SessionContainer
         foreach ($this->cache as $type => $object) {
             $this->storage->set($type, $object);
         }
+
+        $this->clear_storage = false;
     }
 
     /**
@@ -114,8 +114,9 @@ class SessionService implements SessionContainer
      */
     protected function fetch($type)
     {
-        if (!isset($this->cache[$type]) && ! $this->clear_storage) {
-            $this->cache[$type] = $this->storage->get($type);
+        if (! isset($this->cache[$type])) {
+            //After clear(), before commit(), fetch() behaves as if storage is empty.
+            $this->cache[$type] = $this->clear_storage ? null : $this->storage->get($type);
         }
 
         return $this->cache[$type];

@@ -203,6 +203,18 @@ test(
         eq($storage->data, array('User' => $user), 'Can clear session and update values subsequently in one commit');
 
         eq($user->name, null, 'A session model fetched after clear(), before commit(), must be a new instance');
+
+        $cart = $container->update(function (Cart $cart) {
+            return $cart;
+        });
+
+        $container->commit();
+
+        eq(
+            $storage->data,
+            array('User' => $user, 'Cart' => $cart),
+            'It only clears storage in the first commit() after clear()'
+        );
     }
 );
 
